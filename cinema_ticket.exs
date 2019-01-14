@@ -23,10 +23,46 @@ movie(100, 10, 0.95) should return 24
 
 defmodule Movie do
 
-  def movie(card, ticket, perc) do
+  def price_sys_a(ticket, nb) do
+    ticket * nb
+  end
+
+  def price_sys_b(card, ticket, perc, nb = 0, my_history) do
+    card * 1.0
+  end
+
+  def price_sys_b(card, ticket, perc, nb, my_history) do
+
+    already_computed = :ets.lookup(my_history, "p-for-#{nb}")
+
+    cond do
+      already_computed == [] ->
+        p_before = price_sys_b(card, ticket, perc, nb-1, my_history)
+        p_cur = ticket * :math.pow(perc, nb)
+        p = p_before + p_cur
+
+        :ets.insert(my_history, {"p-for-#{nb}", p})
+
+        p
+      [{_, computed_value} | _ ] = already_computed -> computed_value
+    end
 
   end
 
+  def find_first_n(card, ticket, perc, nb, my_history) do
+
+    case (price_sys_b(card, ticket, perc, nb, my_history) |> Float.ceil) < price_sys_a(ticket, nb) do
+      true -> nb
+      false -> find_first_n(card, ticket, perc, nb + 1, my_history)
+    end
+  end
+
+  def movie(card, ticket, perc) do
+    my_history = :ets.new(:my_history, [:set, :protected])
+    find_first_n(card, ticket, perc, 0, my_history)
+  end
 end
 
-IO.puts "movie #{inspect Movie.movie(500, 15, 0.9)}"
+IO.inspect Movie.movie(50000, 800, 1.0)
+
+#IO.puts "movie #{inspect Movie.movie(100.0, 10.0, 0.95)}"
